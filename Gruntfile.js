@@ -33,6 +33,7 @@ module.exports = function (grunt) {
           'lib/morris.line.coffee',
           'lib/morris.area.coffee',
           'lib/morris.bar.coffee',
+          'lib/morris.pie.coffee',
           'lib/morris.donut.coffee'
         ],
         dest: 'build/morris.coffee'
