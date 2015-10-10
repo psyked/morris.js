@@ -1962,6 +1962,426 @@ Licensed under the BSD-2-Clause License.
 
   })(Morris.Grid);
 
+  Morris.isUniform = function(array, value, compare) {
+    var el, _i, _len;
+    value = value != null ? value : array[0];
+    compare = compare != null ? compare : function(a, b) {
+      return a === b;
+    };
+    if (array.length === 0) {
+      return true;
+    }
+    for (_i = 0, _len = array.length; _i < _len; _i++) {
+      el = array[_i];
+      if (!compare(el, value)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  Morris.Pie = (function(_super) {
+    __extends(Pie, _super);
+
+    Pie.prototype.pieDefaults = {
+      colors: ['#0B62A4', '#3980B5', '#679DC6', '#95BBD7', '#B0CCE1', '#095791', '#095085', '#083E67', '#052C48', '#042135'],
+      idKey: "label",
+      stroke: "#FFFFFF",
+      strokeWidth: 3,
+      sort: false,
+      formatter: Morris.commas,
+      showLabel: "hover",
+      drawOut: 5,
+      minSectorAngle: 5
+    };
+
+    function Pie(options) {
+      var _this = this;
+      if (!(this instanceof Morris.Pie)) {
+        return new Morris.Pie(options);
+      }
+      if (typeof options.element === 'string') {
+        this.el = $(document.getElementById(options.element));
+      } else {
+        this.el = $(options.element);
+      }
+      if (this.el === null || this.el.length === 0) {
+        throw new Error("Container element not found.");
+      }
+      if (options.data === void 0 || options.data.length === 0) {
+        return;
+      }
+      this.options = $.extend({}, this.pieDefaults, options);
+      this.setData(options.data);
+      if (this.options.showLabel === "hover") {
+        this.el.mouseout(function(evt) {
+          return _this.hideLabel();
+        });
+      }
+      if (this.options.showLabel !== true) {
+        this.el.mouseout(function(evt) {
+          return _this.deselect();
+        });
+      }
+      this.redraw();
+    }
+
+    Pie.prototype.setData = function(data) {
+      var angle, angles, i, row, sumAngles, total, updateSum, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _len5, _len6, _m, _n, _o, _ref, _ref1;
+      total = 0;
+      for (_i = 0, _len = data.length; _i < _len; _i++) {
+        row = data[_i];
+        total = total + row.value;
+      }
+      if (total === 0) {
+        total = 1;
+      }
+      this.data = [];
+      for (_j = 0, _len1 = data.length; _j < _len1; _j++) {
+        row = data[_j];
+        this.data.push({
+          label: row.label,
+          value: this.options.formatter(row.value, row),
+          sector: row.value / total * 100,
+          angle: row.value / total * 360,
+          id: row[this.options.idKey]
+        });
+      }
+      if (Morris.isUniform(this.data, 0, function(a, v) {
+        return a.sector === v;
+      })) {
+        _ref = this.data;
+        for (_k = 0, _len2 = _ref.length; _k < _len2; _k++) {
+          row = _ref[_k];
+          row.sector = 100 / this.data.length;
+          row.angle = 360 / this.data.length;
+        }
+      }
+      angles = (function() {
+        var _l, _len3, _ref1, _results;
+        _ref1 = this.data;
+        _results = [];
+        for (_l = 0, _len3 = _ref1.length; _l < _len3; _l++) {
+          row = _ref1[_l];
+          _results.push(row.angle);
+        }
+        return _results;
+      }).call(this);
+      updateSum = 0;
+      for (i = _l = 0, _len3 = angles.length; _l < _len3; i = ++_l) {
+        angle = angles[i];
+        if (!(angle < this.options.minSectorAngle)) {
+          continue;
+        }
+        angles[i] = this.options.minSectorAngle;
+        updateSum += this.options.minSectorAngle - angle;
+      }
+      sumAngles = 0;
+      for (i = _m = 0, _len4 = angles.length; _m < _len4; i = ++_m) {
+        angle = angles[i];
+        if (angle >= updateSum * 2) {
+          sumAngles += angle;
+        }
+      }
+      for (i = _n = 0, _len5 = angles.length; _n < _len5; i = ++_n) {
+        angle = angles[i];
+        if (angle >= updateSum * 2) {
+          angles[i] = angle - updateSum * angle / sumAngles;
+        }
+      }
+      for (i = _o = 0, _len6 = angles.length; _o < _len6; i = ++_o) {
+        angle = angles[i];
+        this.data[i].angle = angle;
+        this.data[i].sector = angle / 3.6;
+      }
+      if ((_ref1 = this.options.sortData) === true || _ref1 === "asc") {
+        return this.data = this.data.sort(function(a, b) {
+          return a.sector > b.sector;
+        });
+      } else if (this.options.sortData === "desc") {
+        return this.data = this.data.sort(function(a, b) {
+          return a.sector < b.sector;
+        });
+      }
+    };
+
+    Pie.prototype.redraw = function() {
+      this.clear();
+      this.calc();
+      return this.draw();
+    };
+
+    Pie.prototype.clear = function() {
+      this.label = null;
+      this.middles = [];
+      this.sectors = [];
+      this.el.empty();
+      return this.r = new Raphael(this.el[0]);
+    };
+
+    Pie.prototype.calc = function() {
+      this.width = this.el.width();
+      this.height = this.el.height();
+      if (this.options.showLabel !== false) {
+        this.height -= 30;
+      }
+      this.cx = this.width / 2.0;
+      this.cy = this.height / 2.0;
+      this.radius = 0.8 * Math.min(this.cx, this.cy);
+      if (this.options.showLabel !== false) {
+        return this.cy += 30;
+      }
+    };
+
+    Pie.prototype.select = function(i) {
+      var s, sector, _i, _len, _ref;
+      _ref = this.sectors;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        s = _ref[_i];
+        s.deselect();
+      }
+      sector = i;
+      if (typeof i === "number") {
+        sector = this.sectors[i];
+      }
+      sector.select();
+      this.fire("hover", sector.data.id, sector.data);
+      if (this.options.showLabel !== false) {
+        return this.showLabel(sector);
+      }
+    };
+
+    Pie.prototype.showLabel = function(sector) {
+      if (this.label === null) {
+        this.label = this.r.text(this.cx, 30, "").attr({
+          "font-size": 15,
+          "font-weight": "bold"
+        });
+      }
+      return this.label.attr({
+        fill: sector.color,
+        text: "" + sector.data.label + ": " + sector.data.value
+      });
+    };
+
+    Pie.prototype.hideLabel = function() {
+      this.deselect();
+      if (this.label !== null) {
+        return this.label.attr("text", "");
+      }
+    };
+
+    Pie.prototype.deselect = function() {
+      var s, _i, _len, _ref, _results;
+      _ref = this.sectors;
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        s = _ref[_i];
+        _results.push(s.deselect());
+      }
+      return _results;
+    };
+
+    Pie.prototype.draw = function() {
+      if (this.data.length === 1) {
+        return this.drawSingle();
+      } else {
+        return this.drawSectors();
+      }
+    };
+
+    Pie.prototype.drawSingle = function() {
+      var angle, sector,
+        _this = this;
+      angle = 90 + 360 * this.data[0].sector / 200;
+      sector = this.genSingle(this.data[0], angle, angle - 3.6 * this.data[0].sector);
+      sector.render(this.r);
+      sector.on("hover", function(s) {
+        return _this.select(s);
+      });
+      sector.on("click", function(id, data) {
+        return _this.fire("click", id, data);
+      });
+      this.sectors.push(sector);
+      if (this.options.showLabel === true) {
+        return this.select(0);
+      }
+    };
+
+    Pie.prototype.drawSectors = function() {
+      var angle, from, i, mangle, row, sector, to, _i, _len, _ref, _ref1,
+        _this = this;
+      angle = 0;
+      _ref = this.data;
+      for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
+        row = _ref[i];
+        if (row.sector === 0) {
+          continue;
+        }
+        mangle = angle - 360 * row.sector / 200;
+        if (!i) {
+          angle = 90 - mangle;
+          mangle = angle - 360.0 * row.sector / 200;
+        }
+        _ref1 = [angle, angle - 3.6 * row.sector], from = _ref1[0], to = _ref1[1];
+        angle = to;
+        sector = this.genSector(row, from, to, i);
+        sector.render(this.r);
+        sector.on("hover", function(s) {
+          return _this.select(s);
+        });
+        sector.on("click", function(id, data) {
+          return _this.fire("click", id, data);
+        });
+        this.sectors.push(sector);
+      }
+      if (this.options.showLabel === true) {
+        return this.select(this.data.length - 1);
+      }
+    };
+
+    Pie.prototype.genSingle = function(row) {
+      return new Morris.Pie.FullSector(this.cx, this.cy, this.radius, this.getColor(0), row, this.options);
+    };
+
+    Pie.prototype.genSector = function(row, from, to, i) {
+      return new Morris.Pie.Sector(this.cx, this.cy, this.radius, from, to, this.getColor(i), row, this.options);
+    };
+
+    Pie.prototype.getColor = function(i) {
+      if (typeof this.options.colors === "function") {
+        return this.options.colors.call(this.data[i], i, this.options);
+      } else {
+        return this.options.colors[i % this.options.colors.length];
+      }
+    };
+
+    return Pie;
+
+  })(Morris.EventEmitter);
+
+  Morris.Pie.FullSector = (function(_super) {
+    __extends(FullSector, _super);
+
+    function FullSector(cx, cy, radius, color, data, options) {
+      this.cx = cx;
+      this.cy = cy;
+      this.radius = radius;
+      this.color = color;
+      this.data = data;
+      this.options = options;
+      this.selected = false;
+    }
+
+    FullSector.prototype.render = function(r) {
+      var _this = this;
+      return this.sec = r.circle(this.cx, this.cy, this.radius - this.options.drawOut).attr({
+        fillr: this.color,
+        stroke: this.options.stroke,
+        "stroke-width": this.options.strokeWidth,
+        "stroke-linejoin": "round"
+      }).hover(function() {
+        return _this.fire("hover", _this);
+      }).click(function() {
+        return _this.fire("click", _this.data.id, _this.data);
+      });
+    };
+
+    FullSector.prototype.select = function() {
+      if (!this.selected) {
+        this.sec.animate({
+          r: this.radius
+        }, 150, "<>");
+        return this.selected = true;
+      }
+    };
+
+    FullSector.prototype.deselect = function() {
+      if (this.selected) {
+        this.sec.animate({
+          r: this.radius - this.options.drawOut
+        }, 150, "<>");
+        return this.selected = false;
+      }
+    };
+
+    return FullSector;
+
+  })(Morris.EventEmitter);
+
+  Morris.Pie.Sector = (function(_super) {
+    __extends(Sector, _super);
+
+    function Sector(cx, cy, radius, from, to, color, data, options) {
+      var rad;
+      this.cx = cx;
+      this.cy = cy;
+      this.radius = radius;
+      this.color = color;
+      this.data = data;
+      this.options = options;
+      rad = Math.PI / 180;
+      this.diff = Math.abs(to - from);
+      this.cos = Math.cos(-(from + (to - from) / 2) * rad);
+      this.sin = Math.sin(-(from + (to - from) / 2) * rad);
+      this.sin_from = Math.sin(-from * rad);
+      this.cos_from = Math.cos(-from * rad);
+      this.sin_to = Math.sin(-to * rad);
+      this.cos_to = Math.cos(-to * rad);
+      this.long = +(this.diff > 180);
+      this.path = this.calcSegment(this.radius - this.options.drawOut);
+      this.selectedPath = this.calcSegment(this.radius);
+      this.selected = false;
+      this.mx = this.cx + this.radius / 2 * this.cos;
+      this.my = this.cy + this.radius / 2 * this.sin;
+    }
+
+    Sector.prototype.calcArcPoints = function(r) {
+      return [this.cx + r * this.cos_from, this.cy + r * this.sin_from, this.cx + r * this.cos_to, this.cy + r * this.sin_to];
+    };
+
+    Sector.prototype.calcSegment = function(r) {
+      var x1, x2, y1, y2, _ref;
+      _ref = this.calcArcPoints(r), x1 = _ref[0], y1 = _ref[1], x2 = _ref[2], y2 = _ref[3];
+      return "M" + this.cx + "," + this.cy + "L" + x1 + "," + y1 + "A" + r + "," + r + ",0," + this.long + ",1," + x2 + "," + y2 + "Z";
+    };
+
+    Sector.prototype.render = function(r) {
+      var _this = this;
+      return this.sec = r.path(this.path).attr({
+        fill: this.color,
+        stroke: this.options.stroke,
+        'stroke-width': this.options.strokeWidth,
+        'stroke-linejoin': 'round'
+      }).hover(function() {
+        return _this.fire('hover', _this);
+      }).click(function() {
+        return _this.fire("click", _this.data.id, _this.data);
+      });
+    };
+
+    Sector.prototype.select = function() {
+      if (!this.selected) {
+        this.sec.animate({
+          path: this.selectedPath
+        }, 150, '<>');
+        return this.selected = true;
+      }
+    };
+
+    Sector.prototype.deselect = function() {
+      if (this.selected) {
+        this.sec.animate({
+          path: this.path
+        }, 150, '<>');
+        return this.selected = false;
+      }
+    };
+
+    return Sector;
+
+  })(Morris.EventEmitter);
+
   Morris.Donut = (function(_super) {
     __extends(Donut, _super);
 

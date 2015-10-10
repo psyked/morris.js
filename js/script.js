@@ -23,6 +23,17 @@ $(function () {
     labels: ['Licensed', 'Off the road']
   });
 
+  Morris.Pie({
+    element: 'hero-pie',
+    data: [
+      {label: 'Jam', value: 25 },
+      {label: 'Frosted', value: 40 },
+      {label: 'Custard', value: 25 },
+      {label: 'Sugar', value: 10 }
+    ],
+    formatter: function (y) { return y + "%" }
+  });
+
   Morris.Donut({
     element: 'hero-donut',
     data: [
