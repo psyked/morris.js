@@ -58,6 +58,10 @@ tests currently *only* pass on OS X.
 
 ## Changelog
 
+### 0.5.1 - 11th October 2015
+
+- Merged in outstanding community pull request to add support for pie charts [#149](https://github.com/morrisjs/morris.js/issues/149)
+
 ### 0.5.1 - 15th June 2014
 
 - Fix touch event handling.
